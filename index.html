@@ -1,0 +1,778 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#e8508a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8D%A6%3C/text%3E%3C/svg%3E">
+<title>Caja de la heladería</title>
+<style>
+:root{
+  --bg:#fff6f9; --card:#ffffff; --ink:#2b2230; --muted:#7a6f82; --line:#f0dfe7;
+  --brand:#e8508a; --brand-ink:#ffffff; --chip:#fdebf2; --out:#d6394f; --in:#1b9467; --warn:#a8650b;
+  --shadow:0 1px 2px rgba(80,30,60,.06),0 6px 18px rgba(80,30,60,.06);
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#1a1520; --card:#251d2d; --ink:#f4eef7; --muted:#a99db3; --line:#3a2f45;
+    --brand:#ff7aa8; --brand-ink:#2b0f1b; --chip:#38263f; --out:#ff7a8a; --in:#4fd3a1; --warn:#e5b567; --shadow:none; }
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding-bottom:84px}
+header,main{max-width:640px;margin:0 auto;padding-left:16px;padding-right:16px}
+header{display:flex;align-items:center;justify-content:space-between;padding-top:16px;padding-bottom:8px}
+header h1{font-size:20px;margin:0}
+#clock{color:var(--muted);font-size:14px;font-variant-numeric:tabular-nums}
+h2{font-size:17px;margin:0 0 10px}
+h3{font-size:13px;margin:18px 0 8px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:var(--shadow)}
+label{display:block;font-size:14px;color:var(--muted);margin-bottom:12px}
+input,select,textarea{display:block;width:100%;margin-top:4px;padding:12px;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
+#fAmount{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:10px 14px}
+button.primary{background:var(--brand);color:var(--brand-ink);border-color:var(--brand);font-weight:700}
+button.primary.big{width:100%;padding:14px;font-size:17px}
+button.ghost{background:transparent}
+button.link{border:none;background:none;padding:2px 4px;color:var(--muted);font-size:13px;text-decoration:underline}
+.seg{display:flex;gap:6px;margin-bottom:14px}
+.seg button{flex:1;padding:12px 8px}
+.seg button.on{background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:700}
+.hint{font-size:13px;color:var(--muted);margin:4px 0 10px}
+.err{color:var(--out);font-size:14px;min-height:20px;margin:4px 0}
+.row{display:flex;gap:10px;justify-content:flex-end}
+.row>*{flex:0 0 auto}
+.day{display:flex;justify-content:space-between;align-items:baseline;margin:20px 2px 6px;font-size:13px;color:var(--muted)}
+.day span:first-child{text-transform:capitalize}
+.day b{color:var(--ink);font-variant-numeric:tabular-nums}
+ul{list-style:none;margin:0;padding:0}
+.mov{display:grid;grid-template-columns:48px 1fr auto;gap:2px 10px;align-items:start;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+.mov .time{color:var(--muted);font-size:14px;font-variant-numeric:tabular-nums;padding-top:1px}
+.mov .who{font-weight:700}
+.mov .why{font-size:14px;color:var(--muted);word-break:break-word}
+.tag{display:inline-block;background:var(--chip);color:var(--ink);border-radius:999px;padding:1px 9px;font-size:12px;margin-right:4px}
+.amt{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pos{color:var(--in)} .neg{color:var(--out)} .zero{color:var(--muted)}
+.stmt{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+.stmt th{text-align:left;font-size:12px;color:var(--muted);font-weight:600;padding:4px 6px;border-bottom:1px solid var(--line)}
+.stmt td{padding:7px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+.stmt .n{text-align:right;white-space:nowrap}
+.stmt .d{color:var(--muted);font-size:12px;white-space:nowrap}
+.stmt .t{font-size:13px;word-break:break-word}
+.stmt tr.sum td{font-weight:700;background:var(--chip);border-bottom:none}
+.stmt-wrap{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:10px;margin-bottom:14px}
+.stmt-wrap .stmt th{position:sticky;top:0;background:var(--card)}
+.monthnav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.monthnav b::first-letter{text-transform:uppercase}
+details{margin-top:4px}
+summary{cursor:pointer;font-size:14px;color:var(--muted);padding:6px 0}
+details[open] summary{margin-bottom:6px}
+.day b.pos{color:var(--in)} .day b.neg{color:var(--out)}
+.mov .act{grid-column:2/4;text-align:right;margin-top:-2px}
+.mov.void{opacity:.6}
+.mov.void .amt,.mov.void .who{text-decoration:line-through}
+.void-note{grid-column:2/4;font-size:13px;color:var(--warn)}
+.cut{background:var(--chip);border-color:transparent}
+.badge{display:inline-block;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;background:var(--card);color:var(--ink);white-space:nowrap}
+.balance{text-align:center}
+.balance .lbl{color:var(--muted);font-size:14px}
+.balance .big{font-size:44px;font-weight:800;font-variant-numeric:tabular-nums;margin:4px 0}
+.balance .sub{font-size:14px;color:var(--muted);margin-bottom:10px}
+.balance .sub b{color:var(--ink)}
+.bar{display:grid;grid-template-columns:1fr auto;gap:2px 10px;margin-bottom:10px;font-size:15px}
+.bar .t{grid-column:1/3;height:8px;background:var(--line);border-radius:99px;overflow:hidden}
+.bar .t i{display:block;height:100%;background:var(--brand);border-radius:99px}
+.bar span:last-child{font-variant-numeric:tabular-nums;font-weight:700}
+.total{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
+.total b{font-size:26px;font-variant-numeric:tabular-nums}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.chips button{background:var(--chip);border-color:transparent;border-radius:999px;padding:8px 14px;font-size:14px}
+.chips button.on{background:var(--brand);color:var(--brand-ink);font-weight:700}
+.opt{display:block;width:100%;text-align:left;padding:12px 14px;margin-bottom:8px;border-radius:12px;border:2px solid var(--line);background:var(--bg)}
+.opt b{display:block}
+.opt small{color:var(--muted);font-size:13px}
+.opt.on{border-color:var(--brand);background:var(--chip)}
+.safe{text-align:center;background:var(--chip);border-radius:12px;padding:12px;margin-bottom:14px}
+.safe span{font-size:13px;color:var(--muted)}
+.safe b{display:block;font-size:30px;font-variant-numeric:tabular-nums}
+.prow{display:grid;grid-template-columns:1fr 110px auto;gap:6px;margin-bottom:8px;align-items:center}
+.prow input,.prow select{margin:0;padding:9px}
+.prow button{padding:9px 10px}
+.cutline{padding:10px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:8px;font-size:14px;align-items:center}
+.cutline:last-child{border-bottom:none}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:var(--card);border-top:1px solid var(--line)}
+nav button{flex:1;max-width:200px;border:none;background:transparent;color:var(--muted);padding:8px 4px;font-size:14px}
+nav button.on{color:var(--brand);font-weight:700;background:var(--chip)}
+dialog{border:none;border-radius:18px;padding:20px;background:var(--card);color:var(--ink);width:min(520px,calc(100% - 32px));max-height:92vh}
+dialog::backdrop{background:rgba(20,10,25,.55)}
+.sumbox{background:var(--chip);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:15px}
+#toast{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;max-width:90%;text-align:center;opacity:0;pointer-events:none;transition:opacity .2s;z-index:10}
+#toast.show{opacity:1}
+.empty{text-align:center;color:var(--muted);padding:24px 0}
+@media (max-width:420px){ .balance .big{font-size:38px} }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🍦 Caja de la heladería</h1>
+  <span style="text-align:right"><span id="clock"></span><br><span id="sync" class="hint" style="margin:0"></span></span>
+</header>
+
+<main>
+  <!-- ========== RETIROS ========== -->
+  <section id="tab-retiros">
+    <form id="movForm" class="card" autocomplete="off">
+      <h2>Movimiento de efectivo</h2>
+      <label>¿Quién sos?
+        <select id="fPerson"></select>
+      </label>
+      <label>Monto
+        <input id="fAmount" inputmode="decimal" placeholder="$ 0">
+      </label>
+      <div class="hint" id="fPrev" style="margin-top:-8px"></div>
+      <label style="margin-bottom:6px">¿Qué hiciste con la plata?</label>
+      <div id="fDest">
+        <button type="button" class="opt" data-d="caja_fuerte"><b>🔒 La puse en la caja fuerte</b><small>Suma a la caja fuerte</small></button>
+        <button type="button" class="opt" data-d="saca"><b>💸 La saqué de la caja fuerte</b><small>Ej: vino un proveedor y hubo que pagarle. Resta de la caja fuerte</small></button>
+        <button type="button" class="opt" data-d="local"><b>🏪 Uso del local</b><small>Se usó directo, no entra en la cuenta de la caja fuerte</small></button>
+      </div>
+      <label>Razón <span id="fReasonReq"></span>
+        <input id="fReason" placeholder="Ej: hielo, cambio, cierre de turno…">
+      </label>
+      <div class="err" id="fErr"></div>
+      <button type="submit" class="primary big">Registrar</button>
+    </form>
+  </section>
+
+  <!-- ========== RESUMEN ========== -->
+  <section id="tab-resumen" hidden></section>
+
+  <!-- ========== AJUSTES ========== -->
+  <section id="tab-ajustes" hidden></section>
+</main>
+
+<nav>
+  <button data-tab="retiros" class="on">💸 Retiros</button>
+  <button data-tab="resumen">📊 Resumen</button>
+  <button data-tab="ajustes">⚙️ Ajustes</button>
+</nav>
+
+<dialog id="dlg"></dialog>
+<div id="toast" role="status"></div>
+<input type="file" id="fileIn" accept="application/json" hidden>
+
+<script>
+'use strict';
+
+/* ---------- utilidades ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+const fmtInt = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0, maximumFractionDigits: 0 });
+const fmtDec = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const money = n => (Math.abs(n - Math.round(n)) < 0.005 ? fmtInt : fmtDec).format(n);
+const signed = n => (n > 0 ? '+' : n < 0 ? '−' : '') + money(Math.abs(n));
+const fmtMonth = new Intl.DateTimeFormat('es-AR', { month: 'long', year: 'numeric' });
+const fmtTime = new Intl.DateTimeFormat('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
+const fmtDate = new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: '2-digit' });
+const fmtLong = new Intl.DateTimeFormat('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+const hhmm = ts => fmtTime.format(ts);
+const ddmm = ts => fmtDate.format(ts);
+const dayKey = ts => { const d = new Date(ts); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); };
+
+// "1500", "1.500", "1.500,50", "$ 1500,5" -> número. NaN si no se entiende.
+function parseMoney(str) {
+  let s = String(str ?? '').replace(/[^\d.,]/g, '');
+  if (!s) return NaN;
+  if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+  else if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+  const n = parseFloat(s);
+  return isFinite(n) ? Math.round(n * 100) / 100 : NaN;
+}
+
+// Hash simple para el PIN (disuade, no es seguridad fuerte)
+function hash(s) {
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 2654435761); h2 = Math.imul(h2 ^ c, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+}
+
+let toastTimer;
+function toast(msg) {
+  const t = $('#toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+/* ---------- datos ---------- */
+const KEY = 'heladeria-caja-v2';
+// caja_fuerte suma a la caja fuerte · saca resta (ej: pagar a un proveedor) · local no entra en esa cuenta
+const DESTS = { caja_fuerte: '🔒 A la caja fuerte', saca: '💸 Sacado de la caja fuerte', local: '🏪 Uso del local' };
+
+function seed() {
+  const P = (name, role) => ({ id: uid(), name, role, active: true });
+  return {
+    pin: '1d72w4wo64w', // PIN compartido de los socios (guardado como hash)
+    people: [P('Guido', 'socio'), P('Colores', 'socio'), P('Nico', 'empleado'), P('Maxi', 'empleado'), P('Jian', 'empleado'), P('Joaco', 'empleado')],
+    movs: [],
+  };
+}
+function load() {
+  try {
+    const r = localStorage.getItem(KEY);
+    if (r) {
+      const d = JSON.parse(r);
+      // el socio que se llamaba "Nico" pasa a "Colores" para no confundirlo con el empleado Nico
+      if (d.people.some(p => p.role === 'empleado' && p.name === 'Nico')) d.people.forEach(p => { if (p.role === 'socio' && p.name === 'Nico') p.name = 'Colores'; });
+      return d;
+    }
+  } catch (e) {}
+  return seed();
+}
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(S)); }
+  catch (e) { toast('⚠️ No se pudo guardar en este navegador'); }
+}
+let S = load();
+
+/* ---------- nube (opcional): comparte los mismos datos entre todos los celulares ---------- */
+// Pegá acá la dirección de tu Realtime Database de Firebase (ver COMO-PUBLICAR.md).
+// Si queda vacío, los datos se guardan solo en este equipo.
+const CLOUD_URL = '';
+
+const PKEY = 'heladeria-caja-pending-v1';
+let cloud = null; // { url, pending: [op], busy, status, synced }
+
+function startCloud(url) {
+  cloud = { url: url.replace(/\/+$/, ''), pending: [], busy: false, status: 'init', synced: !!S.fromCloud };
+  try { cloud.pending = JSON.parse(localStorage.getItem(PKEY) || '[]'); } catch (e) {}
+  setInterval(syncNow, 5000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) syncNow(); });
+  window.addEventListener('online', syncNow);
+  syncNow();
+}
+// Cada cambio se guarda acá y se envía en orden; si no hay internet queda esperando
+function queue(op) {
+  if (!cloud) return;
+  if (op.p === 'meta') cloud.pending = cloud.pending.filter(x => x.p !== 'meta');
+  cloud.pending.push(op);
+  try { localStorage.setItem(PKEY, JSON.stringify(cloud.pending)); } catch (e) {}
+  syncNow();
+}
+const metaBody = () => ({ pin: S.pin, people: S.people });
+const queueMeta = () => queue({ m: 'PUT', p: 'meta', b: metaBody() });
+function pushMov(m) { S.movs.push(m); save(); queue({ m: 'PUT', p: 'movs/' + m.id, b: m }); }
+function replaceAllCloud() {
+  queueMeta();
+  queue({ m: 'PUT', p: 'movs', b: Object.fromEntries(S.movs.map(m => [m.id, m])) });
+}
+// ¿ya se bajaron los datos reales (personas, PIN) desde la nube?
+function cloudReady() {
+  if (!cloud || cloud.synced) return true;
+  toast('Conectando… probá de nuevo en unos segundos');
+  return false;
+}
+function updateBadge() {
+  const b = $('#sync'); if (!b) return;
+  if (!cloud) { b.textContent = '💾 Solo este equipo'; return; }
+  const n = cloud.pending.length;
+  b.textContent = cloud.status === 'ok' ? (n ? `☁️ Enviando (${n})…` : '☁️ Sincronizado') :
+                  cloud.status === 'offline' ? `⚠️ Sin conexión${n ? ` · ${n} sin enviar` : ''}` : '☁️ Conectando…';
+}
+async function syncNow() {
+  if (!cloud || cloud.busy) return;
+  cloud.busy = true;
+  try {
+    const call = (path, opt) => fetch(`${cloud.url}/${path}.json`, opt).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r; });
+    // 1) enviar lo pendiente, en orden
+    while (cloud.pending.length) {
+      const op = cloud.pending[0];
+      await call(op.p, { method: op.m, body: JSON.stringify(op.b) });
+      cloud.pending.shift();
+      try { localStorage.setItem(PKEY, JSON.stringify(cloud.pending)); } catch (e) {}
+    }
+    // 2) traer lo último de la nube
+    const [movs, meta] = await Promise.all([call('movs').then(r => r.json()), call('meta').then(r => r.json())]);
+    if (!meta) { // nube vacía: este equipo la inicia con lo que tiene
+      replaceAllCloud(); S.fromCloud = true; cloud.synced = true; save();
+    } else {
+      const before = JSON.stringify(S);
+      const map = movs || {};
+      let pinP = meta.pin, peopleP = meta.people || [];
+      cloud.pending.forEach(op => { // cambios hechos mientras se sincronizaba
+        if (op.p === 'movs') { Object.keys(map).forEach(k => delete map[k]); Object.assign(map, op.b); }
+        else if (op.p.startsWith('movs/')) { const id = op.p.slice(5); map[id] = op.m === 'PATCH' ? { ...map[id], ...op.b } : op.b; }
+        else if (op.p === 'meta') { pinP = op.b.pin; peopleP = op.b.people; }
+      });
+      S.pin = pinP; S.people = peopleP; S.movs = Object.values(map); S.fromCloud = true; cloud.synced = true;
+      save();
+      if (JSON.stringify(S) !== before && typeof renderAll === 'function') renderAll();
+    }
+    cloud.status = 'ok';
+  } catch (e) { cloud.status = 'offline'; }
+  cloud.busy = false;
+  updateBadge();
+}
+
+const person = id => S.people.find(p => p.id === id);
+const activePeople = () => S.people.filter(p => p.active);
+const empleados = () => activePeople().filter(p => p.role === 'empleado');
+const socios = () => activePeople().filter(p => p.role === 'socio');
+// Si hay dos personas con el mismo nombre (ej. dos "Nico") se aclara el rol
+const label = p => activePeople().filter(x => x.name === p.name).length > 1 ? `${p.name} (${p.role})` : p.name;
+const pname = m => { const p = person(m.personId); return p ? label(p) : (m.personName || '¿?'); };
+
+/*
+  Libro de la caja fuerte (se recorre en orden, ignorando anulados):
+  - retiro de empleado a "Caja fuerte": suma a la caja fuerte
+  - retiro de empleado a "Uso del local": no entra en esa cuenta (solo se informa)
+  - corte de un socio: 'todo' (queda en 0), 'dejo' (queda X) o 'retiro' (se lleva X, queda el resto)
+*/
+function ledger() {
+  let safe = 0, lastCut = null, since = { caja_fuerte: 0, saca: 0, local: 0 };
+  const cutInfo = {}, entries = []; // entries: movimientos que tocan la caja fuerte, con saldo corrido
+  const list = S.movs.filter(m => !m.void).sort((a, b) => a.ts - b.ts);
+  const add = (m, delta, text) => { safe += delta; entries.push({ id: m.id, ts: m.ts, who: pname(m), text, delta, balance: safe }); };
+  for (const m of list) {
+    if (m.type === 'corte') {
+      const mode = m.mode || 'dejo', val = m.value ?? m.left ?? 0; // cortes viejos: solo tenían "left"
+      const before = safe;
+      const after = mode === 'todo' ? 0 : mode === 'dejo' ? val : before - val;
+      const i = cutInfo[m.id] = { mode, val, before, after, taken: Math.max(0, before - after), adj: Math.max(0, after - before) };
+      add(m, after - before, '✂️ Corte: ' + cutTxt(i) + (m.reason ? ' · ' + m.reason : ''));
+      lastCut = m; since = { caja_fuerte: 0, saca: 0, local: 0 };
+    } else {
+      since[m.dest] = (since[m.dest] || 0) + m.amount;
+      if (m.dest === 'caja_fuerte') add(m, m.amount, 'Puso en la caja fuerte' + (m.reason ? ' · ' + m.reason : ''));
+      else if (m.dest === 'saca') add(m, -m.amount, 'Sacó de la caja fuerte' + (m.reason ? ' · ' + m.reason : ''));
+    }
+  }
+  return { safe, lastCut, since, cutInfo, entries, cuts: list.filter(m => m.type === 'corte') };
+}
+function cutTxt(i) {
+  if (i.mode === 'todo') return `Se llevó todo (${money(i.taken)})`;
+  if (i.mode === 'retiro') return `Retiró ${money(i.taken)} · quedan ${money(i.after)}`;
+  return `Dejó ${money(i.after)}` + (i.taken ? ` · se llevó ${money(i.taken)}` : '') + (i.adj ? ` · ajuste +${money(i.adj)}` : '');
+}
+
+/* ---------- navegación ---------- */
+// Resumen y Ajustes piden el PIN; se vuelve a bloquear al salir de esas pestañas o tras 3 minutos sin tocar nada
+let unlocked = false, lastAct = Date.now();
+const LOCKED_TABS = ['resumen', 'ajustes'];
+const curTab = () => $('nav button.on').dataset.tab;
+['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, () => { lastAct = Date.now(); }));
+setInterval(() => {
+  if (unlocked && Date.now() - lastAct > 180000 && !dlg.open) { unlocked = false; if (LOCKED_TABS.includes(curTab())) showTab('retiros'); }
+}, 15000);
+
+function renderLock(el, what) {
+  el.innerHTML = `<div class="card"><h2>🔒 ${what} bloqueado</h2>
+    <p class="hint">Solo los socios (con el PIN) pueden verlo.</p>
+    <button class="primary" id="unlockBtn">Desbloquear</button></div>`;
+  $('#unlockBtn').onclick = openUnlock;
+}
+function showTab(name) {
+  if (!LOCKED_TABS.includes(name)) unlocked = false;
+  $$('main > section').forEach(s => s.hidden = s.id !== 'tab-' + name);
+  $$('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
+  renderAll();
+  window.scrollTo(0, 0);
+}
+$$('nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+
+function tickClock() {
+  const n = Date.now();
+  $('#clock').textContent = new Intl.DateTimeFormat('es-AR', { weekday: 'short' }).format(n) + ' ' + ddmm(n) + ' · ' + hhmm(n);
+}
+tickClock(); setInterval(tickClock, 20000);
+
+/* ---------- formulario de retiro ---------- */
+let formDest = '';
+
+function renderForm() {
+  const sel = $('#fPerson'), cur = sel.value;
+  sel.innerHTML = '<option value="">Elegí tu nombre…</option>' +
+    empleados().map(p => `<option value="${p.id}">${esc(label(p))}</option>`).join('');
+  sel.value = empleados().some(p => p.id === cur) ? cur : '';
+  $$('#fDest button').forEach(b => b.classList.toggle('on', b.dataset.d === formDest));
+  const need = formDest === 'local' || formDest === 'saca';
+  $('#fReasonReq').textContent = need ? '(obligatoria)' : '(opcional)';
+  $('#fReason').placeholder = need ? '¿Para qué? Ej: proveedor de vasitos, hielo…' : 'Ej: cierre de turno';
+}
+$('#fDest').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  formDest = b.dataset.d; renderForm();
+  if (formDest !== 'caja_fuerte') $('#fReason').focus();
+};
+$('#fAmount').oninput = () => {
+  const n = parseMoney($('#fAmount').value);
+  $('#fPrev').textContent = isNaN(n) ? '' : '= ' + money(n);
+};
+$('#movForm').onsubmit = e => {
+  e.preventDefault();
+  if (!cloudReady()) return;
+  const pid = $('#fPerson').value, amt = parseMoney($('#fAmount').value), why = $('#fReason').value.trim();
+  const err = m => { $('#fErr').textContent = m; };
+  if (!pid) return err('Elegí quién sos.');
+  if (!(amt > 0)) return err('Poné un monto mayor a cero.');
+  if (!formDest) return err('Elegí qué hiciste con la plata.');
+  if ((formDest === 'local' || formDest === 'saca') && why.length < 3) return err('Escribí la razón.');
+  if (formDest === 'saca' && amt > ledger().safe &&
+      !confirm('Estás sacando más plata de la que figura en la caja fuerte. ¿Registrar igual?')) return;
+  const now = Date.now();
+  pushMov({ id: uid(), type: 'retiro', ts: now, personId: pid, personName: person(pid).name, amount: amt, dest: formDest, reason: why, void: null });
+  toast(`${money(amt)} registrado · ${pname({ personId: pid })}, ${hhmm(now)}`);
+  formDest = ''; $('#fAmount').value = ''; $('#fReason').value = ''; $('#fPrev').textContent = ''; $('#fErr').textContent = '';
+  $('#fPerson').value = '';
+  renderAll();
+};
+
+/* ---------- fila de un movimiento ---------- */
+function rowHTML(m, info) {
+  const voidNote = m.void
+    ? `<div class="void-note">Anulado por ${esc(pname({ personId: m.void.by, personName: m.void.byName }))} (${ddmm(m.void.ts)} ${hhmm(m.void.ts)}): ${esc(m.void.reason)}</div>` : '';
+  const anular = m.void ? '' : `<div class="act"><button class="link" data-void="${m.id}">Anular</button></div>`;
+  if (m.type === 'corte') {
+    return `<li class="mov cut ${m.void ? 'void' : ''}">
+      <div class="time">${hhmm(m.ts)}</div>
+      <div><div class="who">✂️ Corte de ${esc(pname(m))}</div>${m.reason ? `<div class="why">${esc(m.reason)}</div>` : ''}</div>
+      <div>${info ? `<span class="badge">${cutTxt(info)}</span>` : ''}</div>
+      ${voidNote}${anular}</li>`;
+  }
+  return `<li class="mov ${m.void ? 'void' : ''}">
+    <div class="time">${hhmm(m.ts)}</div>
+    <div><div class="who">${esc(pname(m))}</div>
+      <div class="why"><span class="tag">${DESTS[m.dest] || ''}</span>${esc(m.reason)}</div></div>
+    <div class="amt ${m.dest === 'caja_fuerte' ? 'pos' : m.dest === 'saca' ? 'neg' : 'zero'}">${m.dest === 'caja_fuerte' ? '+ ' : m.dest === 'saca' ? '− ' : ''}${money(m.amount)}</div>
+    ${voidNote}${anular}</li>`;
+}
+
+
+/* ---------- diálogos ---------- */
+const dlg = $('#dlg');
+function openDlg(html) { dlg.innerHTML = html; dlg.showModal(); }
+dlg.addEventListener('click', e => { if (e.target.closest('[data-close]')) dlg.close(); });
+const dErr = m => { $('#dErr').textContent = m; };
+
+const pinHTML = () => `<label>PIN de socios
+    <input id="aPin" type="password" inputmode="numeric" autocomplete="off" maxlength="12">
+  </label>`;
+// Si ya se desbloqueó la pestaña con el PIN no se vuelve a pedir
+const authHTML = () => `<label>¿Qué socio sos?
+    <select id="aSocio"><option value="">Elegí…</option>${socios().map(p => `<option value="${p.id}">${esc(label(p))}</option>`).join('')}</select>
+  </label>` + (unlocked ? '' : pinHTML());
+const pinOk = () => hash($('#aPin').value) === S.pin;
+function readAuth() {
+  const p = person($('#aSocio').value);
+  if (!p) return { err: 'Elegí qué socio sos.' };
+  if (!unlocked && !pinOk()) return { err: 'PIN incorrecto.' };
+  return { p };
+}
+
+/* Extracto de la caja fuerte de un mes, como una planilla: cada movimiento con su signo y el saldo corrido */
+function statementHTML(y, m) {
+  const E = ledger().entries;
+  const from = new Date(y, m, 1).getTime(), to = new Date(y, m + 1, 1).getTime();
+  const prev = E.filter(e => e.ts < from), rows = E.filter(e => e.ts >= from && e.ts < to);
+  const opening = prev.length ? prev[prev.length - 1].balance : 0;
+  const closing = rows.length ? rows[rows.length - 1].balance : opening;
+  const plus = rows.reduce((s, e) => e.delta > 0 ? s + e.delta : s, 0);
+  const minus = rows.reduce((s, e) => e.delta < 0 ? s - e.delta : s, 0);
+  return `<div class="stmt-wrap"><table class="stmt">
+      <thead><tr><th>Fecha</th><th>Detalle</th><th class="n">Mov.</th><th class="n">Saldo</th></tr></thead>
+      <tbody>
+        <tr><td colspan="3" class="t"><i>Saldo anterior</i></td><td class="n">${money(opening)}</td></tr>
+        ${rows.map(e => `<tr><td class="d">${ddmm(e.ts)}<br>${hhmm(e.ts)}</td>
+          <td class="t"><b>${esc(e.who)}</b> · ${esc(e.text)}</td>
+          <td class="n ${e.delta > 0 ? 'pos' : e.delta < 0 ? 'neg' : 'zero'}">${e.delta ? signed(e.delta) : '0'}</td>
+          <td class="n">${money(e.balance)}</td></tr>`).join('')}
+        <tr class="sum"><td colspan="2">Saldo final</td><td class="n">${signed(closing - opening)}</td><td class="n">${money(closing)}</td></tr>
+      </tbody></table></div>
+    <div class="hint">En el mes entraron <b class="pos">${money(plus)}</b> y salieron <b class="neg">${money(minus)}</b> · <b>saldo final ${money(closing)}</b></div>`;
+}
+
+/* Corte: el socio trabaja sobre la caja fuerte. Tres opciones:
+   me llevo todo (queda en 0) · dejo una cantidad (me llevo el resto) · retiro una cantidad (queda el resto) */
+function openCut() {
+  if (!cloudReady()) return;
+  if (!socios().length) return toast('Primero cargá un socio en Ajustes');
+  const safe = ledger().safe;
+  const OPTS = [
+    ['todo', 'Me llevo todo', 'La caja fuerte queda en $ 0'],
+    ['dejo', 'Dejo una cantidad', 'Me llevo el resto'],
+    ['retiro', 'Retiro una cantidad', 'Queda el resto en la caja fuerte'],
+  ];
+  openDlg(`<form id="cutForm">
+    <h2>✂️ Corte de caja fuerte</h2>
+    <div class="safe"><span>Según la app hay en la caja fuerte</span><b>${money(safe)}</b></div>
+    <h3 style="margin-top:0">Movimientos de ${fmtMonth.format(Date.now())}</h3>
+    ${statementHTML(new Date().getFullYear(), new Date().getMonth())}
+    ${authHTML()}
+    ${OPTS.map(([k, t, s], i) => `<button type="button" class="opt ${i === 0 ? 'on' : ''}" data-m="${k}"><b>${t}</b><small>${s}</small></button>`).join('')}
+    <label id="cValWrap" hidden><span id="cValLbl"></span><input id="cVal" inputmode="decimal" placeholder="$ 0" autocomplete="off"></label>
+    <div class="sumbox" id="cSum"></div>
+    <label>Nota (opcional) <input id="cNote" autocomplete="off" placeholder="Ej: para pagar al proveedor"></label>
+    <div class="err" id="dErr"></div>
+    <div class="row"><button type="button" class="ghost" data-close>Cancelar</button><button type="submit" class="primary">Confirmar corte</button></div>
+  </form>`);
+  let mode = 'todo';
+  const upd = () => {
+    const v = parseMoney($('#cVal').value);
+    $('#cValWrap').hidden = mode === 'todo';
+    $('#cValLbl').textContent = mode === 'dejo' ? '¿Cuánto dejás en la caja fuerte?' : '¿Cuánto retirás?';
+    $('#cSum').innerHTML =
+      mode === 'todo' ? `Te llevás <b>${money(safe)}</b> · Queda <b>$ 0</b>` :
+      isNaN(v) ? 'Ingresá la cantidad.' :
+      mode === 'dejo' ? (v <= safe ? `Te llevás <b>${money(safe - v)}</b> · Queda <b>${money(v)}</b>` : `Queda <b>${money(v)}</b> (${money(v - safe)} más de lo que calcula la app)`) :
+      (v <= safe ? `Retirás <b>${money(v)}</b> · Quedan <b>${money(safe - v)}</b>` : `Retirás ${money(v)}, pero la app calcula ${money(safe)}`);
+  };
+  $('#cVal').oninput = upd;
+  $$('#cutForm .opt').forEach(b => b.onclick = () => {
+    mode = b.dataset.m;
+    $$('#cutForm .opt').forEach(x => x.classList.toggle('on', x === b));
+    upd();
+    if (mode !== 'todo') $('#cVal').focus();
+  });
+  upd();
+  $('#cutForm').onsubmit = e => {
+    e.preventDefault();
+    const a = readAuth(); if (a.err) return dErr(a.err);
+    let value = null;
+    if (mode === 'todo') {
+      if (safe <= 0) return dErr('La caja fuerte está en $ 0, no hay nada para llevarse.');
+    } else {
+      value = parseMoney($('#cVal').value);
+      if (isNaN(value) || value < 0 || (mode === 'retiro' && value === 0)) return dErr('Ingresá la cantidad.');
+      if (mode === 'retiro' && value > safe) return dErr(`En la caja fuerte hay ${money(safe)} según la app. Si hay más, usá "Dejo una cantidad" para actualizarla.`);
+      if (mode === 'dejo' && value > safe &&
+          !confirm(`La app calcula ${money(safe)} en la caja fuerte y vas a dejar ${money(value)}.\nSe registra como un ajuste de +${money(value - safe)}. ¿Es correcto?`)) return;
+    }
+    const id = uid();
+    pushMov({ id, type: 'corte', ts: Date.now(), personId: a.p.id, personName: a.p.name, mode, value, reason: $('#cNote').value.trim(), void: null });
+    dlg.close(); renderAll();
+    toast('Corte hecho · ' + cutTxt(ledger().cutInfo[id]));
+  };
+}
+
+/* Anular */
+function openVoid(id) {
+  const m = S.movs.find(x => x.id === id); if (!m || !cloudReady()) return;
+  openDlg(`<form id="voidForm">
+    <h2>Anular movimiento</h2>
+    <p class="hint">${hhmm(m.ts)} · ${esc(pname(m))} · ${m.type === 'corte' ? 'corte' : money(m.amount)}. No se borra: queda tachado en el historial y deja de contar.</p>
+    ${authHTML()}
+    <label>Motivo <input id="vWhy" autocomplete="off" placeholder="Ej: me equivoqué de monto"></label>
+    <div class="err" id="dErr"></div>
+    <div class="row"><button type="button" class="ghost" data-close>Cancelar</button><button type="submit" class="primary">Anular</button></div>
+  </form>`);
+  $('#voidForm').onsubmit = e => {
+    e.preventDefault();
+    const a = readAuth(); if (a.err) return dErr(a.err);
+    const why = $('#vWhy').value.trim();
+    if (why.length < 3) return dErr('Escribí el motivo.');
+    m.void = { ts: Date.now(), by: a.p.id, byName: a.p.name, reason: why };
+    save(); queue({ m: 'PATCH', p: 'movs/' + m.id, b: { void: m.void } });
+    dlg.close(); renderAll(); toast('Movimiento anulado');
+  };
+}
+
+/* Desbloquear (Resumen y Ajustes) */
+function openUnlock() {
+  openDlg(`<form id="unlockForm"><h2>Desbloquear</h2>${pinHTML()}
+    <div class="err" id="dErr"></div>
+    <div class="row"><button type="button" class="ghost" data-close>Cancelar</button><button type="submit" class="primary">Entrar</button></div></form>`);
+  $('#aPin').focus();
+  $('#unlockForm').onsubmit = e => {
+    e.preventDefault();
+    if (!pinOk()) return dErr('PIN incorrecto.');
+    unlocked = true; lastAct = Date.now(); dlg.close(); renderAll();
+  };
+}
+
+/* ---------- detalle de movimientos (solo se ve desde el Resumen) ---------- */
+function listHTML(y, m) {
+  const from = new Date(y, m, 1).getTime(), to = new Date(y, m + 1, 1).getTime();
+  const all = S.movs.filter(x => x.ts >= from && x.ts < to).sort((a, b) => b.ts - a.ts);
+  if (!all.length) return '<p class="hint">Sin movimientos este mes.</p>';
+  const L = ledger();
+  const dayNet = {}; // efecto del día sobre la caja fuerte
+  L.entries.forEach(e => { dayNet[dayKey(e.ts)] = (dayNet[dayKey(e.ts)] || 0) + e.delta; });
+
+  let html = '', last = '';
+  all.forEach(x => {
+    const k = dayKey(x.ts);
+    if (k !== last) {
+      last = k;
+      const today = dayKey(Date.now()) === k, yest = dayKey(Date.now() - 864e5) === k;
+      html += `<div class="day"><span>${today ? 'Hoy' : yest ? 'Ayer' : fmtLong.format(x.ts)}</span>` +
+              (dayNet[k] ? `<span>Caja fuerte del día <b class="${dayNet[k] > 0 ? 'pos' : 'neg'}">${signed(dayNet[k])}</b></span>` : '<span></span>') + '</div>';
+    }
+    html += rowHTML(x, L.cutInfo[x.id]);
+  });
+  return `<ul>${html}</ul>`;
+}
+
+/* ---------- resumen ---------- */
+let stMonth = { y: new Date().getFullYear(), m: new Date().getMonth() };
+let detOpen = false;
+
+function renderSummary() {
+  const el = $('#tab-resumen');
+  if (!unlocked) return renderLock(el, 'Resumen');
+  const L = ledger();
+  const now = new Date(), isCurMonth = stMonth.y === now.getFullYear() && stMonth.m === now.getMonth();
+
+  const c = L.lastCut;
+  const balance = `<div class="balance"><div class="lbl">🔒 En la caja fuerte (según la app)</div>
+    <div class="big">${money(L.safe)}</div>
+    <div class="sub">${c ? `Último corte: <b>${esc(pname(c))}</b>, ${ddmm(c.ts)} ${hhmm(c.ts)} · ${cutTxt(L.cutInfo[c.id])}` : 'Todavía no hay ningún corte.'}</div>
+    ${c ? '' : '<div class="hint">Si la caja fuerte ya tenía plata, hacé un corte con “Dejo una cantidad” para fijar cuánto hay.</div>'}
+    <button class="primary big" id="cutBtn">✂️ Hacer corte</button></div>`;
+
+  const cutsHTML = L.cuts.length
+    ? [...L.cuts].reverse().map(x => `<div class="cutline">
+        <span><b>${esc(pname(x))}</b> · ${ddmm(x.ts)} ${hhmm(x.ts)}${x.reason ? `<br><span class="hint">${esc(x.reason)}</span>` : ''}</span>
+        <span class="badge" style="background:var(--chip)">${cutTxt(L.cutInfo[x.id])}</span></div>`).join('')
+    : '<p class="hint">Todavía no se hizo ningún corte.</p>';
+
+  el.innerHTML = `
+    <div class="card">${balance}</div>
+    <div class="card"><h2>📒 Movimientos de la caja fuerte</h2>
+      <div class="monthnav"><button data-nav="-1" aria-label="Mes anterior">‹</button><b>${fmtMonth.format(new Date(stMonth.y, stMonth.m, 1))}</b>
+        <button data-nav="1" aria-label="Mes siguiente" ${isCurMonth ? 'disabled' : ''}>›</button></div>
+      ${statementHTML(stMonth.y, stMonth.m)}
+      <details id="allMovs" ${detOpen ? 'open' : ''}><summary>Ver todos los movimientos del mes (para anular o ver el uso del local)</summary>${listHTML(stMonth.y, stMonth.m)}</details>
+    </div>
+    <div class="card"><h2>Historial de cortes</h2>${cutsHTML}</div>`;
+  $('#cutBtn').onclick = openCut;
+  $('#allMovs').ontoggle = e => { detOpen = e.target.open; };
+  $$('[data-nav]').forEach(b => b.onclick = () => {
+    const d = new Date(stMonth.y, stMonth.m + +b.dataset.nav, 1);
+    stMonth = { y: d.getFullYear(), m: d.getMonth() }; renderSummary();
+  });
+}
+$('#tab-resumen').onclick = e => {
+  const b = e.target.closest('[data-void]'); if (b) openVoid(b.dataset.void);
+};
+
+/* ---------- ajustes ---------- */
+function renderSettings() {
+  const el = $('#tab-ajustes');
+  if (!unlocked) return renderLock(el, 'Ajustes');
+  el.innerHTML = `
+    <div class="card"><h2>Personas</h2>
+      <p class="hint">Los socios hacen cortes y anulan movimientos. Los empleados son los que aparecen en el formulario de retiros.</p>
+      ${activePeople().map(p => `<div class="prow" data-id="${p.id}">
+        <input data-f="name" value="${esc(p.name)}" aria-label="Nombre">
+        <select data-f="role" aria-label="Rol"><option value="socio" ${p.role === 'socio' ? 'selected' : ''}>Socio</option><option value="empleado" ${p.role === 'empleado' ? 'selected' : ''}>Empleado</option></select>
+        <button data-del="${p.id}" aria-label="Quitar">✕</button></div>`).join('')}
+      <h3>Agregar persona</h3>
+      <div class="prow">
+        <input id="newName" placeholder="Nombre" autocomplete="off">
+        <select id="newRole"><option value="empleado">Empleado</option><option value="socio">Socio</option></select>
+        <button id="addP" class="primary">Agregar</button></div>
+    </div>
+    <div class="card"><h2>PIN de socios</h2>
+      <p class="hint">Es el mismo para los dos socios. Se pide para ver el Resumen, hacer cortes, anular movimientos y entrar a Ajustes.</p>
+      <button id="chgPin">Cambiar PIN</button>
+    </div>
+    <div class="card"><h2>Copias de seguridad</h2>
+      <p class="hint">Los datos se guardan en este dispositivo. Bajá una copia de vez en cuando, y usala si cambian de tablet o limpian el navegador.</p>
+      <div class="row" style="justify-content:flex-start;flex-wrap:wrap">
+        <button id="expJson">⬇️ Copia (.json)</button><button id="impJson">⬆️ Restaurar copia</button><button id="expCsv">📄 Exportar a Excel (.csv)</button></div>
+    </div>`;
+}
+
+function download(name, text, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+function exportCSV() {
+  const L = ledger();
+  const rows = [['Fecha', 'Hora', 'Tipo', 'Persona', 'Qué hizo / corte', 'Razón / nota', 'Monto (empleado)', 'Movimiento en caja fuerte', 'Saldo caja fuerte', 'Estado']];
+  const num = n => String(n).replace('.', ',');
+  const byId = Object.fromEntries(L.entries.map(e => [e.id, e]));
+  [...S.movs].sort((a, b) => a.ts - b.ts).forEach(m => {
+    const i = L.cutInfo[m.id], e = byId[m.id], r = m.type === 'retiro';
+    rows.push([
+      ddmm(m.ts) + '/' + new Date(m.ts).getFullYear(), hhmm(m.ts), m.type, pname(m),
+      r ? (DESTS[m.dest] || '').replace(/^\S+\s/, '') : (i ? cutTxt(i) : ''), m.reason || '',
+      r ? num(m.amount) : '', e ? (e.delta > 0 ? '+' : '') + num(e.delta) : '', e ? num(e.balance) : '',
+      m.void ? 'ANULADO por ' + (person(m.void.by)?.name ?? m.void.byName) + ': ' + m.void.reason : 'ok']);
+  });
+  const csv = '﻿' + rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(';')).join('\r\n');
+  download('caja-heladeria-' + new Date().toISOString().slice(0, 10) + '.csv', csv, 'text/csv;charset=utf-8');
+}
+
+$('#tab-ajustes').onchange = e => {
+  const f = e.target.dataset.f; if (!f) return;
+  const p = person(e.target.closest('.prow').dataset.id);
+  if (f === 'name') { const v = e.target.value.trim(); if (v) p.name = v; }
+  if (f === 'role') {
+    if (p.role === 'socio' && e.target.value !== 'socio' && socios().length < 2) toast('Tiene que quedar al menos un socio');
+    else p.role = e.target.value;
+  }
+  save(); queueMeta(); renderAll();
+};
+$('#tab-ajustes').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.id === 'addP') {
+    const name = $('#newName').value.trim(); if (!name) return toast('Escribí un nombre');
+    S.people.push({ id: uid(), name, role: $('#newRole').value, active: true });
+    save(); queueMeta(); renderAll();
+  } else if (b.dataset.del) {
+    const p = person(b.dataset.del);
+    if (p.role === 'socio' && socios().length < 2) return toast('Tiene que quedar al menos un socio');
+    if (confirm(`¿Quitar a ${p.name}? Sus movimientos anteriores se conservan.`)) { p.active = false; save(); queueMeta(); renderAll(); }
+  } else if (b.id === 'chgPin') {
+    if (hash(prompt('PIN actual:') || '') !== S.pin) return toast('PIN incorrecto');
+    const n = prompt('Nuevo PIN (4 a 12 números):');
+    if (n === null) return;
+    if (!/^\d{4,12}$/.test(n)) return toast('El PIN tiene que tener 4 a 12 números');
+    S.pin = hash(n); save(); queueMeta(); toast('PIN cambiado');
+  } else if (b.id === 'expJson') {
+    download('caja-heladeria-copia-' + new Date().toISOString().slice(0, 10) + '.json', JSON.stringify(S, null, 1), 'application/json');
+  } else if (b.id === 'impJson') $('#fileIn').click();
+  else if (b.id === 'expCsv') exportCSV();
+};
+$('#fileIn').onchange = e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const d = JSON.parse(r.result);
+      if (!Array.isArray(d.people) || !Array.isArray(d.movs) || !d.pin) throw 0;
+      if (!confirm(`Esta copia tiene ${d.movs.length} movimientos. Reemplaza TODO lo que hay ahora. ¿Seguir?`)) return;
+      S = d; if (cloud) S.fromCloud = true;
+      save(); replaceAllCloud(); renderAll(); toast('Copia restaurada');
+    } catch (err) { toast('Ese archivo no es una copia válida'); }
+  };
+  r.readAsText(f);
+};
+
+/* ---------- arranque ---------- */
+function renderAll() {
+  renderForm();
+  if (!$('#tab-resumen').hidden) renderSummary();
+  if (!$('#tab-ajustes').hidden) renderSettings();
+}
+save();
+renderAll();
+updateBadge();
+if (CLOUD_URL) startCloud(CLOUD_URL);
+</script>
+</body>
+</html>
