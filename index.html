@@ -246,37 +246,44 @@ function save() {
 }
 let S = load();
 
-/* ---------- nube (opcional): comparte los mismos datos entre todos los celulares ---------- */
-// Pegá acá la dirección de tu Realtime Database de Firebase (ver COMO-PUBLICAR.md).
-// Si queda vacío, los datos se guardan solo en este equipo.
-const CLOUD_URL = '';
+/* ---------- nube (Supabase): todos los celulares ven y cargan los mismos datos ---------- */
+// Mismo proyecto de Supabase y misma tabla kv_store que usan las otras apps (horarios,
+// desperdicios, pedidos). Esta app solo toca claves que empiezan con "heladeria-caja:",
+// así que nunca se pisa con los datos de las demás.
+// Cada movimiento es su propia fila (heladeria-caja:mov:<id>) y cada anulación otra fila
+// (heladeria-caja:void:<id>): si dos celulares cargan a la vez, nunca se pisan entre sí.
+// Las personas y el PIN están en una sola fila (heladeria-caja:meta).
+// Si CLOUD_URL / CLOUD_KEY quedan vacías, los datos se guardan solo en este equipo.
+const CLOUD_URL = 'https://jkoxjgklsadwcmflgldw.supabase.co';
+const CLOUD_KEY = 'sb_publishable_plnwV-5Z0hlmCWpQXX8O8Q_gKiqsv-r';
+const KP = 'heladeria-caja:';
+const K_META = KP + 'meta', K_MOV = KP + 'mov:', K_VOID = KP + 'void:';
 
-const PKEY = 'heladeria-caja-pending-v1';
-let cloud = null; // { url, pending: [op], busy, status, synced }
+const PKEY = 'heladeria-caja-pending-v2';
+let cloud = null; // { url, key, pending: [op], busy, status, synced }
+// op: { k: 'mov', id, b: movimiento } | { k: 'void', id, b: anulación } | { k: 'meta', b: {pin, people} } | { k: 'movs', b: [movimientos] }
 
-function startCloud(url) {
-  cloud = { url: url.replace(/\/+$/, ''), pending: [], busy: false, status: 'init', synced: !!S.fromCloud };
+function startCloud(url, key) {
+  cloud = { url: url.replace(/\/+$/, ''), key, pending: [], busy: false, status: 'init', synced: !!S.fromCloud };
   try { cloud.pending = JSON.parse(localStorage.getItem(PKEY) || '[]'); } catch (e) {}
   setInterval(syncNow, 5000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) syncNow(); });
   window.addEventListener('online', syncNow);
   syncNow();
 }
+const savePending = () => { try { localStorage.setItem(PKEY, JSON.stringify(cloud.pending)); } catch (e) {} };
 // Cada cambio se guarda acá y se envía en orden; si no hay internet queda esperando
 function queue(op) {
   if (!cloud) return;
-  if (op.p === 'meta') cloud.pending = cloud.pending.filter(x => x.p !== 'meta');
+  cloud.pending = cloud.pending.filter(x => !(x.k === op.k && x.id === op.id)); // el último estado de cada cosa pisa al anterior
   cloud.pending.push(op);
-  try { localStorage.setItem(PKEY, JSON.stringify(cloud.pending)); } catch (e) {}
+  savePending();
   syncNow();
 }
 const metaBody = () => ({ pin: S.pin, people: S.people });
-const queueMeta = () => queue({ m: 'PUT', p: 'meta', b: metaBody() });
-function pushMov(m) { S.movs.push(m); save(); queue({ m: 'PUT', p: 'movs/' + m.id, b: m }); }
-function replaceAllCloud() {
-  queueMeta();
-  queue({ m: 'PUT', p: 'movs', b: Object.fromEntries(S.movs.map(m => [m.id, m])) });
-}
+const queueMeta = () => queue({ k: 'meta', b: metaBody() });
+function pushMov(m) { S.movs.push(m); save(); queue({ k: 'mov', id: m.id, b: m }); }
+function uploadAllCloud() { queueMeta(); queue({ k: 'movs', b: [...S.movs] }); }
 // ¿ya se bajaron los datos reales (personas, PIN) desde la nube?
 function cloudReady() {
   if (!cloud || cloud.synced) return true;
@@ -290,30 +297,65 @@ function updateBadge() {
   b.textContent = cloud.status === 'ok' ? (n ? `☁️ Enviando (${n})…` : '☁️ Sincronizado') :
                   cloud.status === 'offline' ? `⚠️ Sin conexión${n ? ` · ${n} sin enviar` : ''}` : '☁️ Conectando…';
 }
+const rest = (path, opt = {}) => fetch(`${cloud.url}/rest/v1/${path}`, {
+  ...opt,
+  headers: { apikey: cloud.key, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal',
+             ...(cloud.key.startsWith('eyJ') ? { Authorization: 'Bearer ' + cloud.key } : {}) }, // claves nuevas (sb_publishable_…) van solo en apikey
+}).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r; });
+const upsert = rows => rest('kv_store', { method: 'POST', body: JSON.stringify(rows) });
+// el movimiento se guarda siempre sin anulación; la anulación va en su propia fila
+const movRow = m => ({ key: K_MOV + m.id, value: { ...m, void: null } });
+const voidRow = (id, v) => ({ key: K_VOID + id, value: v });
+
 async function syncNow() {
   if (!cloud || cloud.busy) return;
   cloud.busy = true;
   try {
-    const call = (path, opt) => fetch(`${cloud.url}/${path}.json`, opt).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r; });
     // 1) enviar lo pendiente, en orden
     while (cloud.pending.length) {
       const op = cloud.pending[0];
-      await call(op.p, { method: op.m, body: JSON.stringify(op.b) });
-      cloud.pending.shift();
-      try { localStorage.setItem(PKEY, JSON.stringify(cloud.pending)); } catch (e) {}
+      if (op.k === 'mov') await upsert([movRow(op.b)]);
+      else if (op.k === 'void') await upsert([voidRow(op.id, op.b)]);
+      else if (op.k === 'meta') await upsert([{ key: K_META, value: op.b }]);
+      else {
+        const all = [];
+        op.b.forEach(m => { all.push(movRow(m)); if (m.void) all.push(voidRow(m.id, m.void)); });
+        for (let i = 0; i < all.length; i += 500) await upsert(all.slice(i, i + 500));
+      }
+      cloud.pending.shift(); savePending();
     }
-    // 2) traer lo último de la nube
-    const [movs, meta] = await Promise.all([call('movs').then(r => r.json()), call('meta').then(r => r.json())]);
+    // 2) traer lo nuevo desde la última vez (paginado). Las filas solo se agregan (nunca se
+    // modifican), así que la hora del servidor alcanza; se reintenta 1 minuto hacia atrás por las dudas.
+    const since = new Date(Math.max(0, Date.parse(S.cloudSince || '1970-01-01T00:00:00Z') - 60000)).toISOString();
+    let rows = [];
+    for (let off = 0; ; off += 1000) {
+      const part = await rest(`kv_store?select=key,value,updated_at&key=like.${encodeURIComponent(KP + '*')}&updated_at=gte.${encodeURIComponent(since)}&order=updated_at.asc,key.asc&limit=1000&offset=${off}`, { method: 'GET' }).then(r => r.json());
+      rows = rows.concat(part);
+      if (part.length < 1000) break;
+    }
+    const metaRows = await rest(`kv_store?select=value&key=eq.${encodeURIComponent(K_META)}`, { method: 'GET' }).then(r => r.json());
+    const meta = metaRows[0] && metaRows[0].value;
     if (!meta) { // nube vacía: este equipo la inicia con lo que tiene
-      replaceAllCloud(); S.fromCloud = true; cloud.synced = true; save();
+      uploadAllCloud(); S.fromCloud = true; cloud.synced = true; save();
     } else {
       const before = JSON.stringify(S);
-      const map = movs || {};
+      if (!S.fromCloud) { S.movs = []; S.orphan = {}; } // primera conexión de este equipo: manda lo que hay en la nube
+      const map = Object.fromEntries(S.movs.map(m => [m.id, m]));
+      const voids = Object.assign({}, S.orphan);
+      rows.forEach(r => {
+        if (r.key.startsWith(K_MOV)) {
+          const d = r.value, old = map[d.id];
+          map[d.id] = { ...d, void: (old && old.void) || d.void || null }; // no perder una anulación que ya conocemos
+        } else if (r.key.startsWith(K_VOID)) voids[r.key.slice(K_VOID.length)] = r.value;
+      });
+      S.orphan = {}; // anulaciones cuyo movimiento todavía no llegó: esperan
+      Object.entries(voids).forEach(([id, v]) => { if (map[id]) map[id].void = v; else S.orphan[id] = v; });
+      if (rows.length) S.cloudSince = rows[rows.length - 1].updated_at;
       let pinP = meta.pin, peopleP = meta.people || [];
       cloud.pending.forEach(op => { // cambios hechos mientras se sincronizaba
-        if (op.p === 'movs') { Object.keys(map).forEach(k => delete map[k]); Object.assign(map, op.b); }
-        else if (op.p.startsWith('movs/')) { const id = op.p.slice(5); map[id] = op.m === 'PATCH' ? { ...map[id], ...op.b } : op.b; }
-        else if (op.p === 'meta') { pinP = op.b.pin; peopleP = op.b.people; }
+        if (op.k === 'mov') map[op.id] = op.b;
+        else if (op.k === 'void') { if (map[op.id]) map[op.id].void = op.b; }
+        else if (op.k === 'meta') { pinP = op.b.pin; peopleP = op.b.people; }
       });
       S.pin = pinP; S.people = peopleP; S.movs = Object.values(map); S.fromCloud = true; cloud.synced = true;
       save();
@@ -323,6 +365,7 @@ async function syncNow() {
   } catch (e) { cloud.status = 'offline'; }
   cloud.busy = false;
   updateBadge();
+  if (cloud.status === 'ok' && cloud.pending.length) setTimeout(syncNow, 100); // quedó algo encolado mientras sincronizaba
 }
 
 const person = id => S.people.find(p => p.id === id);
@@ -582,7 +625,7 @@ function openVoid(id) {
     const why = $('#vWhy').value.trim();
     if (why.length < 3) return dErr('Escribí el motivo.');
     m.void = { ts: Date.now(), by: a.p.id, byName: a.p.name, reason: why };
-    save(); queue({ m: 'PATCH', p: 'movs/' + m.id, b: { void: m.void } });
+    save(); queue({ k: 'void', id: m.id, b: m.void });
     dlg.close(); renderAll(); toast('Movimiento anulado');
   };
 }
@@ -688,7 +731,7 @@ function renderSettings() {
       <button id="chgPin">Cambiar PIN</button>
     </div>
     <div class="card"><h2>Copias de seguridad</h2>
-      <p class="hint">Los datos se guardan en este dispositivo. Bajá una copia de vez en cuando, y usala si cambian de tablet o limpian el navegador.</p>
+      <p class="hint">Los datos se guardan en la nube y los ven todos los dispositivos. Igual conviene bajar una copia de vez en cuando, por si hace falta recuperar algo.</p>
       <div class="row" style="justify-content:flex-start;flex-wrap:wrap">
         <button id="expJson">⬇️ Copia (.json)</button><button id="impJson">⬆️ Restaurar copia</button><button id="expCsv">📄 Exportar a Excel (.csv)</button></div>
     </div>`;
@@ -755,9 +798,10 @@ $('#fileIn').onchange = e => {
     try {
       const d = JSON.parse(r.result);
       if (!Array.isArray(d.people) || !Array.isArray(d.movs) || !d.pin) throw 0;
-      if (!confirm(`Esta copia tiene ${d.movs.length} movimientos. Reemplaza TODO lo que hay ahora. ¿Seguir?`)) return;
-      S = d; if (cloud) S.fromCloud = true;
-      save(); replaceAllCloud(); renderAll(); toast('Copia restaurada');
+      if (!confirm(`Esta copia tiene ${d.movs.length} movimientos. ` + (cloud ? 'Se suman a lo que ya hay en la nube y pisa las personas y el PIN. ' : 'Reemplaza TODO lo que hay ahora. ') + '¿Seguir?')) return;
+      S = d; S.cloudSince = null;
+      if (cloud) { S.fromCloud = true; uploadAllCloud(); }
+      save(); renderAll(); toast('Copia restaurada');
     } catch (err) { toast('Ese archivo no es una copia válida'); }
   };
   r.readAsText(f);
@@ -772,7 +816,7 @@ function renderAll() {
 save();
 renderAll();
 updateBadge();
-if (CLOUD_URL) startCloud(CLOUD_URL);
+if (CLOUD_URL && CLOUD_KEY) startCloud(CLOUD_URL, CLOUD_KEY);
 </script>
 </body>
 </html>
